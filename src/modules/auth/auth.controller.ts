@@ -33,11 +33,7 @@ export async function authRoutes(fastify: FastifyInstance) {
 
       return reply.status(201).send({
         message: 'User registered successfully',
-        user: {
-          ...user,
-          createdAt: user.createdAt.toISOString(),
-          updatedAt: user.updatedAt.toISOString(),
-        },
+        user,
         token,
       });
     } catch (error) {
@@ -83,11 +79,7 @@ export async function authRoutes(fastify: FastifyInstance) {
 
       return reply.send({
         message: 'Login successful',
-        user: {
-          ...user,
-          createdAt: user.createdAt.toISOString(),
-          updatedAt: user.updatedAt.toISOString(),
-        },
+        user,
         token,
       });
     } catch (error) {

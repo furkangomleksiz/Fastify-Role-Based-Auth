@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { Role } from '@prisma/client';
+import { Role } from '../types';
 import { buildJsonSchemas } from 'fastify-zod';
 
 // ===== Request Schemas =====
@@ -31,27 +31,37 @@ export const updateRoleSchema = z.object({
 });
 
 export const uuidParamSchema = z.object({
-  id: z.string().uuid('Invalid ID format'),
+  id: z.string().min(1, 'ID is required'),
 });
 
 // ===== Response Schemas =====
 export const userResponseSchema = z.object({
-  id: z.string().uuid(),
+  id: z.string(),
   email: z.string().email(),
   name: z.string(),
   role: z.nativeEnum(Role),
-  createdAt: z.string().datetime(),
-  updatedAt: z.string().datetime(),
+  createdAt: z.string(),
+  updatedAt: z.string(),
+  _count: z.object({
+    posts: z.number(),
+  }).optional(),
 });
 
+const postAuthorSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  email: z.string().email(),
+}).optional();
+
 export const postResponseSchema = z.object({
-  id: z.string().uuid(),
+  id: z.string(),
   title: z.string(),
   content: z.string(),
   published: z.boolean(),
-  authorId: z.string().uuid(),
-  createdAt: z.string().datetime(),
-  updatedAt: z.string().datetime(),
+  authorId: z.string(),
+  createdAt: z.string(),
+  updatedAt: z.string(),
+  author: postAuthorSchema,
 });
 
 export const authResponseSchema = z.object({

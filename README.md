@@ -1,6 +1,6 @@
 # Role-Based Blog API
 
-A robust backend API built with Fastify, Prisma, and TypeScript featuring role-based access control (RBAC) for a blogging platform.
+A robust backend API built with Fastify, PocketBase, and TypeScript featuring role-based access control (RBAC) for a blogging platform.
 
 ## 🚀 Features
 
@@ -11,17 +11,17 @@ A robust backend API built with Fastify, Prisma, and TypeScript featuring role-b
   - **ADMIN**: Full access - manage posts and user roles
 - **RESTful API** - Clean and intuitive API design
 - **TypeScript** - Full type safety throughout the application
-- **Prisma ORM** - Type-safe database access with PostgreSQL
+- **PocketBase** - Powerful backend-as-a-service for data persistence
 - **Request Validation** - Automatic input validation using Zod schemas with Fastify integration
 - **API Documentation** - Auto-generated OpenAPI/Swagger documentation at `/docs`
 - **Error Handling** - Comprehensive error handling with appropriate HTTP status codes
 - **CORS Support** - Configurable CORS with origin allowlist
-- **Security** - Password hashing with bcrypt, JWT token validation
+- **Security** - JWT token validation with PocketBase authentication
 
 ## 📋 Prerequisites
 
 - Node.js (v18 or higher)
-- PostgreSQL (v13 or higher)
+- Access to a PocketBase instance
 - npm or yarn
 
 ## 🛠️ Installation
@@ -46,34 +46,65 @@ cp env.example .env
 
 Update the `.env` file with your configuration:
 ```env
-DATABASE_URL="postgresql://username:password@localhost:5432/blog_db?schema=public"
-JWT_SECRET="your-super-secret-jwt-key-change-this-in-production"
+# Server Configuration
 PORT=3000
 NODE_ENV=development
+
+# PocketBase Configuration
+POCKETBASE_URL="https://ajans-intern-team.pfshfc.easypanel.host"
+
+# JWT Configuration
+JWT_SECRET="your-super-secret-jwt-key-change-this-in-production"
+
+# CORS Configuration
 ALLOWED_ORIGINS="http://localhost:3000,http://localhost:5173"
 ```
 
-4. **Set up the database**
+4. **Set up PocketBase Collections**
 
-Create a PostgreSQL database:
-```bash
-createdb blog_db
+You need to create the following collections in your PocketBase instance:
+
+### Users Collection
+- Collection name: `users`
+- Type: Auth collection
+- Fields:
+  - `name` (Text, required)
+  - `role` (Select, required, options: READER, WRITER, ADMIN, default: READER)
+
+### Posts Collection
+- Collection name: `posts`
+- Type: Base collection
+- Fields:
+  - `title` (Text, required)
+  - `content` (Text, required)
+  - `published` (Bool, default: false)
+  - `author` (Relation, required, collection: users, single)
+
+**Collection API Rules (Important!):**
+
+The API handles all authorization logic, so PocketBase collection rules should be permissive:
+
+**Users Collection:**
+```
+listRule: ""
+viewRule: ""
+createRule: ""
+updateRule: ""
+deleteRule: ""
 ```
 
-Run Prisma migrations:
-```bash
-npm run prisma:migrate
+**Posts Collection:**
+```
+listRule: ""
+viewRule: ""
+createRule: ""
+updateRule: ""
+deleteRule: ""
 ```
 
-Generate Prisma Client:
-```bash
-npm run prisma:generate
-```
+Setting empty rules (`""`) allows all operations. The Node.js API layer enforces proper role-based access control, so PocketBase acts as a data store only.
 
-5. **(Optional) Seed the database**
-```bash
-npm run prisma:seed
-```
+> ⚠️ **Security Note:** Make sure your PocketBase instance is not publicly accessible, or configure proper network security. The API layer is the gatekeeper for all data access.
 
 ## 🏃 Running the Application
 
@@ -97,8 +128,6 @@ Once the server is running, visit `http://localhost:3000/docs` to access the int
 - See request/response schemas
 - Test API endpoints directly from the browser
 - Understand authentication requirements
-
-The server will start on `http://localhost:3000` (or the PORT specified in your .env file).
 
 ## 📚 API Documentation
 
@@ -386,24 +415,16 @@ Content-Type: application/json
 - `npm run dev` - Start development server with auto-reload
 - `npm run build` - Build the TypeScript project
 - `npm start` - Start production server
-- `npm run prisma:generate` - Generate Prisma Client
-- `npm run prisma:migrate` - Run database migrations
-- `npm run prisma:studio` - Open Prisma Studio (database GUI)
-- `npm run prisma:seed` - Seed the database with sample data
 
 ## 📁 Project Structure
 
 ```
 role-based-blog-api/
-├── prisma/
-│   ├── schema.prisma        # Database schema
-│   └── seed.ts              # Database seeding script
 ├── src/
 │   ├── config/
 │   │   └── env.ts           # Environment configuration
 │   ├── lib/
-│   │   ├── auth.ts          # Password hashing utilities
-│   │   └── prisma.ts        # Prisma client instance
+│   │   └── pocketbase.ts    # PocketBase client instance
 │   ├── middleware/
 │   │   ├── auth.middleware.ts   # JWT authentication
 │   │   └── roles.middleware.ts  # Role-based access control
@@ -432,11 +453,10 @@ role-based-blog-api/
 
 ## 🛡️ Security Features
 
-- **Password Hashing**: Passwords are hashed using bcrypt with 10 salt rounds
+- **Password Hashing**: PocketBase handles secure password hashing automatically
 - **JWT Tokens**: Secure token-based authentication with 7-day expiration
 - **CORS Protection**: Configurable origin allowlist
 - **Input Validation**: All inputs validated using Zod schemas
-- **SQL Injection Protection**: Prisma ORM prevents SQL injection attacks
 - **Type Safety**: Full TypeScript coverage prevents type-related bugs
 
 ## 🐛 Error Responses
@@ -496,4 +516,18 @@ curl -X POST http://localhost:3000/api/posts \
   }'
 ```
 
+## 🔄 Migration from Prisma/PostgreSQL
 
+This project has been migrated from using Prisma/PostgreSQL to PocketBase. The API interface remains the same, but the backend now uses PocketBase for data persistence, which provides:
+- Built-in authentication
+- Real-time subscriptions (can be added)
+- Admin dashboard UI
+- File storage capabilities
+- Simpler deployment
+
+## 📝 Notes
+
+- Ensure your PocketBase collections are properly set up before running the application
+- The `users` collection should be of type "Auth" in PocketBase
+- Adjust PocketBase collection rules according to your security requirements
+- PocketBase IDs are 15-character strings, not UUIDs

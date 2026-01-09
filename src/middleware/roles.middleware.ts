@@ -1,5 +1,5 @@
 import { FastifyReply, FastifyRequest } from 'fastify';
-import { Role } from '@prisma/client';
+import { Role } from '../types';
 
 export function requireRole(...allowedRoles: Role[]) {
   return async (request: FastifyRequest, reply: FastifyReply): Promise<void> => {

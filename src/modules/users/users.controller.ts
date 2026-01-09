@@ -3,14 +3,14 @@ import { UsersService } from './users.service';
 import { authenticate } from '../../middleware/auth.middleware';
 import { requireRole } from '../../middleware/roles.middleware';
 import { $ref } from '../../utils/validation';
-import { UpdateUserRoleInput } from '../../types';
+import { UpdateUserRoleInput, Role } from '../../types';
 
 const usersService = new UsersService();
 
 export async function usersRoutes(fastify: FastifyInstance) {
   // Get all users (ADMIN only)
   fastify.get('/', {
-    onRequest: [authenticate, requireRole('ADMIN')],
+    onRequest: [authenticate, requireRole(Role.ADMIN)],
     schema: {
       description: 'Get all users (requires ADMIN role)',
       tags: ['Users'],
@@ -22,16 +22,10 @@ export async function usersRoutes(fastify: FastifyInstance) {
         500: $ref('errorResponseSchema'),
       },
     },
-  }, async (request: FastifyRequest, reply: FastifyReply) => {
+  }, async (_request: FastifyRequest, reply: FastifyReply) => {
     try {
       const users = await usersService.getAllUsers();
-      const formattedUsers = users.map(user => ({
-        ...user,
-        createdAt: user.createdAt.toISOString(),
-        updatedAt: user.updatedAt.toISOString(),
-      }));
-      
-      return reply.send({ users: formattedUsers });
+      return reply.send({ users });
     } catch (error) {
       fastify.log.error(error);
       return reply.status(500).send({ 
@@ -43,7 +37,7 @@ export async function usersRoutes(fastify: FastifyInstance) {
 
   // Update user role (ADMIN only)
   fastify.patch('/:id/role', {
-    onRequest: [authenticate, requireRole('ADMIN')],
+    onRequest: [authenticate, requireRole(Role.ADMIN)],
     schema: {
       description: 'Update user role (requires ADMIN role)',
       tags: ['Users'],
@@ -66,11 +60,7 @@ export async function usersRoutes(fastify: FastifyInstance) {
 
       return reply.send({
         message: 'User role updated successfully',
-        user: {
-          ...user,
-          createdAt: user.createdAt.toISOString(),
-          updatedAt: user.updatedAt.toISOString(),
-        },
+        user,
       });
     } catch (error) {
       if (error instanceof Error && error.message === 'User not found') {

@@ -63,7 +63,7 @@ export async function buildApp() {
     openapi: {
       info: {
         title: 'Role-Based Blog API',
-        description: 'RESTful API with role-based access control, built with Fastify, Prisma, and JWT authentication',
+        description: 'RESTful API with role-based access control, built with Fastify, PocketBase, and JWT authentication',
         version: '1.0.0',
       },
       servers: [
@@ -130,13 +130,8 @@ export async function buildApp() {
       });
     }
 
-    // Prisma errors
-    if (error.name === 'PrismaClientKnownRequestError') {
-      return reply.status(400).send({
-        error: 'Database Error',
-        message: 'An error occurred while processing your request',
-      });
-    }
+    // PocketBase errors (handled in services)
+    // Services should throw standard Error objects with appropriate messages
 
     // Default error
     reply.status(error.statusCode || 500).send({

@@ -3,7 +3,7 @@ import { PostsService } from './posts.service';
 import { authenticate } from '../../middleware/auth.middleware';
 import { requireRole } from '../../middleware/roles.middleware';
 import { $ref } from '../../utils/validation';
-import { CreatePostInput, UpdatePostInput } from '../../types';
+import { CreatePostInput, UpdatePostInput, Role } from '../../types';
 
 const postsService = new PostsService();
 
@@ -28,13 +28,7 @@ export async function postsRoutes(fastify: FastifyInstance) {
       }
 
       const posts = await postsService.getAllPosts(request.user?.role);
-      const formattedPosts = posts.map(post => ({
-        ...post,
-        createdAt: post.createdAt.toISOString(),
-        updatedAt: post.updatedAt.toISOString(),
-      }));
-      
-      return reply.send({ posts: formattedPosts });
+      return reply.send({ posts });
     } catch (error) {
       fastify.log.error(error);
       return reply.status(500).send({ 
@@ -69,13 +63,7 @@ export async function postsRoutes(fastify: FastifyInstance) {
       const { id } = request.params as { id: string };
       const post = await postsService.getPostById(id, request.user?.role);
       
-      return reply.send({ 
-        post: {
-          ...post,
-          createdAt: post.createdAt.toISOString(),
-          updatedAt: post.updatedAt.toISOString(),
-        }
-      });
+      return reply.send({ post });
     } catch (error) {
       if (error instanceof Error && error.message === 'Post not found') {
         return reply.status(404).send({ 
@@ -94,7 +82,7 @@ export async function postsRoutes(fastify: FastifyInstance) {
 
   // Create post (WRITER, ADMIN)
   fastify.post('/', {
-    onRequest: [authenticate, requireRole('WRITER', 'ADMIN')],
+    onRequest: [authenticate, requireRole(Role.WRITER, Role.ADMIN)],
     schema: {
       description: 'Create a new post (requires WRITER or ADMIN role)',
       tags: ['Posts'],
@@ -114,11 +102,7 @@ export async function postsRoutes(fastify: FastifyInstance) {
 
       return reply.status(201).send({
         message: 'Post created successfully',
-        post: {
-          ...post,
-          createdAt: post.createdAt.toISOString(),
-          updatedAt: post.updatedAt.toISOString(),
-        },
+        post,
       });
     } catch (error) {
       fastify.log.error(error);
@@ -131,7 +115,7 @@ export async function postsRoutes(fastify: FastifyInstance) {
 
   // Update post (ADMIN only)
   fastify.patch('/:id', {
-    onRequest: [authenticate, requireRole('ADMIN')],
+    onRequest: [authenticate, requireRole(Role.ADMIN)],
     schema: {
       description: 'Update a post (requires ADMIN role)',
       tags: ['Posts'],
@@ -154,11 +138,7 @@ export async function postsRoutes(fastify: FastifyInstance) {
 
       return reply.send({
         message: 'Post updated successfully',
-        post: {
-          ...post,
-          createdAt: post.createdAt.toISOString(),
-          updatedAt: post.updatedAt.toISOString(),
-        },
+        post,
       });
     } catch (error) {
       if (error instanceof Error && error.message === 'Post not found') {
@@ -178,7 +158,7 @@ export async function postsRoutes(fastify: FastifyInstance) {
 
   // Delete post (ADMIN only)
   fastify.delete('/:id', {
-    onRequest: [authenticate, requireRole('ADMIN')],
+    onRequest: [authenticate, requireRole(Role.ADMIN)],
     schema: {
       description: 'Delete a post (requires ADMIN role)',
       tags: ['Posts'],

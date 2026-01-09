@@ -1,124 +1,149 @@
-import prisma from '../../lib/prisma';
-import { CreatePostInput, UpdatePostInput } from '../../types';
-import { Role } from '@prisma/client';
+import pb from '../../lib/pocketbase';
+import { CreatePostInput, UpdatePostInput, PBPostExpanded, Role } from '../../types';
 
 export class PostsService {
   async getAllPosts(userRole?: Role) {
-    // If no user or READER role, only show published posts
-    // WRITER and ADMIN can see all posts
-    const where = !userRole || userRole === 'READER' 
-      ? { published: true }
-      : {};
+    try {
+      // If no user or READER role, only show published posts
+      // WRITER and ADMIN can see all posts
+      const filter = !userRole || userRole === Role.READER 
+        ? 'published = true'
+        : '';
 
-    const posts = await prisma.post.findMany({
-      where,
-      include: {
-        author: {
-          select: {
-            id: true,
-            name: true,
-            email: true,
-          },
-        },
-      },
-      orderBy: {
-        createdAt: 'desc',
-      },
-    });
+      const posts = await pb.collection('posts').getFullList<PBPostExpanded>({
+        filter,
+        sort: '-created',
+        expand: 'author',
+      });
 
-    return posts;
+      // Transform to match expected format
+      return posts.map((post: PBPostExpanded) => ({
+        id: post.id,
+        title: post.title,
+        content: post.content,
+        published: post.published,
+        authorId: post.author,
+        createdAt: post.created,
+        updatedAt: post.updated,
+        author: post.expand?.author ? {
+          id: post.expand.author.id,
+          name: post.expand.author.name,
+          email: post.expand.author.email,
+        } : undefined,
+      }));
+    } catch (error: any) {
+      throw new Error(error?.message || 'Failed to fetch posts');
+    }
   }
 
   async getPostById(id: string, userRole?: Role) {
-    const post = await prisma.post.findUnique({
-      where: { id },
-      include: {
-        author: {
-          select: {
-            id: true,
-            name: true,
-            email: true,
-          },
-        },
-      },
-    });
+    try {
+      const post = await pb.collection('posts').getOne<PBPostExpanded>(id, {
+        expand: 'author',
+      });
 
-    if (!post) {
-      throw new Error('Post not found');
+      // If post is not published, only WRITER and ADMIN can view it
+      if (!post.published && (!userRole || userRole === Role.READER)) {
+        throw new Error('Post not found');
+      }
+
+      return {
+        id: post.id,
+        title: post.title,
+        content: post.content,
+        published: post.published,
+        authorId: post.author,
+        createdAt: post.created,
+        updatedAt: post.updated,
+        author: post.expand?.author ? {
+          id: post.expand.author.id,
+          name: post.expand.author.name,
+          email: post.expand.author.email,
+        } : undefined,
+      };
+    } catch (error: any) {
+      if (error?.status === 404) {
+        throw new Error('Post not found');
+      }
+      throw new Error(error?.message || 'Failed to fetch post');
     }
-
-    // If post is not published, only WRITER and ADMIN can view it
-    if (!post.published && (!userRole || userRole === 'READER')) {
-      throw new Error('Post not found');
-    }
-
-    return post;
   }
 
   async createPost(data: CreatePostInput, authorId: string) {
-    const post = await prisma.post.create({
-      data: {
+    try {
+      const post = await pb.collection('posts').create<PBPostExpanded>({
         title: data.title,
         content: data.content,
         published: data.published ?? false,
-        authorId,
-      },
-      include: {
-        author: {
-          select: {
-            id: true,
-            name: true,
-            email: true,
-          },
-        },
-      },
-    });
+        author: authorId,
+      }, {
+        expand: 'author',
+      });
 
-    return post;
+      return {
+        id: post.id,
+        title: post.title,
+        content: post.content,
+        published: post.published,
+        authorId: post.author,
+        createdAt: post.created,
+        updatedAt: post.updated,
+        author: post.expand?.author ? {
+          id: post.expand.author.id,
+          name: post.expand.author.name,
+          email: post.expand.author.email,
+        } : undefined,
+      };
+    } catch (error: any) {
+      throw new Error(error?.message || 'Failed to create post');
+    }
   }
 
   async updatePost(id: string, data: UpdatePostInput) {
-    // Check if post exists
-    const existingPost = await prisma.post.findUnique({
-      where: { id },
-    });
+    try {
+      // Check if post exists
+      await pb.collection('posts').getOne(id);
 
-    if (!existingPost) {
-      throw new Error('Post not found');
+      const post = await pb.collection('posts').update<PBPostExpanded>(id, data, {
+        expand: 'author',
+      });
+
+      return {
+        id: post.id,
+        title: post.title,
+        content: post.content,
+        published: post.published,
+        authorId: post.author,
+        createdAt: post.created,
+        updatedAt: post.updated,
+        author: post.expand?.author ? {
+          id: post.expand.author.id,
+          name: post.expand.author.name,
+          email: post.expand.author.email,
+        } : undefined,
+      };
+    } catch (error: any) {
+      if (error?.status === 404) {
+        throw new Error('Post not found');
+      }
+      throw new Error(error?.message || 'Failed to update post');
     }
-
-    const post = await prisma.post.update({
-      where: { id },
-      data,
-      include: {
-        author: {
-          select: {
-            id: true,
-            name: true,
-            email: true,
-          },
-        },
-      },
-    });
-
-    return post;
   }
 
   async deletePost(id: string) {
-    // Check if post exists
-    const existingPost = await prisma.post.findUnique({
-      where: { id },
-    });
+    try {
+      // Check if post exists
+      await pb.collection('posts').getOne(id);
 
-    if (!existingPost) {
-      throw new Error('Post not found');
+      await pb.collection('posts').delete(id);
+
+      return { message: 'Post deleted successfully' };
+    } catch (error: any) {
+      if (error?.status === 404) {
+        throw new Error('Post not found');
+      }
+      throw new Error(error?.message || 'Failed to delete post');
     }
-
-    await prisma.post.delete({
-      where: { id },
-    });
-
-    return { message: 'Post deleted successfully' };
   }
 }
 
